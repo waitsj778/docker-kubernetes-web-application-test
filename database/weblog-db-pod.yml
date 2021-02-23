@@ -1,0 +1,95 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: storage-volume
+  namespace: default
+  labels:
+    app: weblog
+    type: storage
+spec:
+  storageClassName: slow
+  capacity:
+    storage: 1Gi
+  accessModes:
+  - ReadWriteMany
+  hostPath:
+    path: "/Users/sanghyunhong/docker-kubernetes-web-application-test/database/data/storage" 
+    type: Directory
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: storage-claim
+  namespace: default
+  labels:
+    app: weblog
+    type: storage
+spec:
+  storageClassName: slow
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mongo-secret
+  namespace: default
+  labels:
+    app: weblog
+    type: database
+type: Opaque
+data:    
+  root_username: YWRtaW4=
+  root_password: UGFzc3cwcmQ=
+  keyfile: L3pSdXVIcCsvVWRja0VMN3J3bTJiUzRxdXBvcnd6L2ptZ1dOb0xOTHlpdmhIZ29JNTlJUTgyVkNCL0gxRG9oUUF5UE9pVlBmRFVIZURlaE4zYWNRYzhGYzJjUUNYeXd3NXlYZ0Z4czRtTndsYmNNdTdBSHczSmkvbW85TStvYVNmRy9UUUVySU9OaytuMlpZeE0rRkZmRlhxNjNBZ21mY1JZdCt6Vmw1ZjZnWnZrWk9kalp5Mm8vNzBHM3hyMjNHdjVqUjlwcFc0cE5lZ1RkNGp0THd5R2FBQTZ1eEVSblIzRTFqRCt5anNtdFh4cGdUSGxxcEE3MHF4STJNRCtKRjhkaHgwWlNYeGZaSFRMUGxqZGd6TlVvWDJJdkN5K1Z3RkNnNHFKOVZad1U0a2c0NXh3cTAxOXRLVTBsQklseEVoM1N0eFdqOGlPTkNPdXFKZ3MzSmYxQUJPM2krZTNIR2c1aHFCTk1qcVJiRHZTOHlOYVlnUGZWR1lWYm5FYUtLbGFhVGt0UVpoMDdFV01OazhrR0hlNmlDcTN5czVXWkxmZCtCVjRYSVM3N2JWMXQwcFowbEh0YVRjVVR2WDNBbGRKV1Y5WHV3YVhYSkVZVThpWDQ0bWhsaUVhc2hPdUtvM242bisyWnB6K3QxTklIb1ZkQllwTEJ4ZmtaMVZUcHBTMUI2NVFMN0J0WUxJV05PaTBYUC96Zy9JZDRmUTZhRHhtZnpRM0ZodmRKbjYrQVh6ZVZZNnAyWWV0RktBNU0wNWhqQzF3ckluMWxvKy9vZ0s2UWp3czQxaUVPK2I2OVp0K1F0NmZGZEdoTGs0d1ZUUnF1UHBFdmRtNDI3ci9EeCtzemtONXNQWE5OS0ttcmQwU2I4OGR1ODNZNTh1YWhKYXA1R3FmQnVNclRwa2dEeXR3R1hwOENOU2NBRjR4ajBIdGV4eEd2MnRpNnpScVFCakZQdEJzbXhQRkRqamM4UUZxNnUrVno1MFZiZVVXdTJtTzFwdjBhMjBwN1crT01zOFhzc3cvTUN2SVdzN1hoWU9JQ2FtVDQ2WGFqVzIrSExvam1aWlNMVXA5OWhHTTh2bHlvZ2pJM3RsZGRpdm9uVDQwclRISHF1RWI5LytDVGp6bTJqdllrM2NkVk9lcnpieCtMcXZCbXFmOEY3c1R1cVQvVmQvSWt6dWcyQzdUSjBiQlc5QW9iRnBVeXNXODZXWFRkVWZOUXNqUVVBVEFlUXR3R3RSSDRienB1b3IzWnQ3M2NqbzQxUGtlb29OSnV6UnN2SEJwa1hQUDVkek5ON05mUm90ZEJESE90TWg0cjI0TlF5SWJTK0ZvZ2hibC9LKzNLakF4TDBmeGdIYkVWNgo=
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mongodb
+  namespace: default
+  labels:
+    app: weblog
+    type: database
+spec:
+  containers:
+  - name: mongodb
+    image: weblog-db:v1.0.0
+    imagePullPolicy: Never
+    args:
+    - "mongod"
+    - "--auth"
+    - "--bind_ip_all"
+    env:
+    - name: "MONGO_INITDB_ROOT_USERNAME"
+      valueFrom:
+        secretKeyRef:
+          name: mongo-secret
+          key: root_username
+    - name: "MONGO_INITDB_ROOT_PASSWORD"
+      valueFrom:
+        secretKeyRef:
+          name: mongo-secret
+          key: root_password
+    - name: "MONGO_INITDB_DATABASE"
+      value: "admin"
+    volumeMounts:
+    - mountPath: "/data/db"
+      name: storage
+  volumes:
+  - name: storage
+    persistentVolumeClaim:
+      claimName: storage-claim
+  - name: secret
+    secret:
+      secretName: mongo-secret
+      items:
+      - key: keyfile
+        path: keyfile
+        mode: 0700
